@@ -32,14 +32,32 @@ function! s:markNone(lineNumber)
     execute ":sign unplace 1 line=" . a:lineNumber . "file=" . expand("%:p")
 endfunction
 
+function! s:runTests()
+py3 << EOF
+tm.runTests()
+EOF
+endfunction
+
 
 call s:defineHighlights()
 call s:defineSigns()
 
-execute 'py3file ' . g:plugindir. '/runTests.py'
 
-command! Runtests execute 'py3 tm.runTests()'
+
+py3 << EOF
+import sys
+import vim
+sys.path.append(vim.eval('g:plugindir'))
+import runTests
+tm=runTests.TestManager()
+EOF
+
+
+"command! Runtests execute 'py3 tm.runTests()'
+command! Runtests call s:runTests()
+
 autocmd BufRead,BufNewFile *.py nnoremap <F4> <ESC>:w<CR>:Runtests<CR>
+execute ':Runtests'
 
 
 

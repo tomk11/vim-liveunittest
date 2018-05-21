@@ -8,10 +8,11 @@ from io import StringIO
 from sortedcontainers import SortedSet
 
 try:
-    import vim
-    sys.path.append(vim.eval('g:plugindir'))
-    sys.path.append(vim.eval("expand('%:p:h')"))
     vimMode = True
+    import vim
+    projectDir = vim.eval("expand('%:p:h')")
+    if projectDir not in sys.path:
+        sys.path.append(projectDir)
 except:
     vimMode = False
     print('not vim mode')
@@ -37,7 +38,7 @@ def reloadUserModules():
         try:
             if shouldReload(m.__file__):
                 importlib.reload(m)
-            #    vim.command("echo '" + str(m.__file__) + " reloaded'")
+                vim.command("echo '" + str(m.__file__) + " reloaded'")
             #elif 'home' in m.__file__ and 'YouCompleteMe' not in m.__file__:
             #    vim.command("echo '" + str(m.__file__) + " ignored'")
 
@@ -58,11 +59,11 @@ class ImportManager:
         self.testModules=[]
 
     def reloadTestClasses(self):
+        reloadUserModules()
         filenames = os.listdir('.')
         testFilenames = list(filter(lambda filename: isTestFile(filename), filenames))
         testModuleNames = list(map(lambda filename: filename[:-3], testFilenames))
 
-        reloadUserModules()
 
         self.testModules = []
         for moduleName in testModuleNames:
@@ -71,8 +72,9 @@ class ImportManager:
             except:
                 pass
 
-        self.testClasses = unittest.TestCase.__subclasses__()
-        self.testClasses = list(filter(lambda c: c.__module__ in testModuleNames, self.testClasses))
+        self.testClasses = []
+        for m in self.testModules:
+            self.testClasses += getTestClasses(m)
 
 
     def getTestMethodsFromClass(self, testClass):
@@ -127,12 +129,14 @@ class TestCollection:
 
     def __init__(self):
         self.tests = []
-
         if vimMode:        
             self.length = int(vim.eval("line('$')"))
             self.filename =vim.eval("g:filename")
         else:
             self.length = 100
+
+    def clearTests(self):
+        self.tests = []
 
     def addTest(self, test):
         self.tests.append(test)
@@ -143,6 +147,7 @@ class TestCollection:
         self.exceptionCoverage = {}
         self.notCovered = {}
         for test in self.tests:
+            #print(self.tests)
             test.run()
             for f in test.coveredFiles:
                 if f not in self.passingCoverage:
@@ -158,33 +163,47 @@ class TestCollection:
                     if line not in self.passingCoverage[f] and line not in self.failingCoverage[f]:
                         self.notCovered[f].add(line)
 
+        print(self.passingCoverage.keys())
 
         if vimMode:
             vim.command("sign unplace *")
-            for s in self.passingCoverage[self.filename]:
-                vim.command("call s:markSuccess(" + str(s) + ")")
-            for s in self.failingCoverage[self.filename]:
-                vim.command("call s:markFailure(" + str(s) + ")")
-                vim.command("echo '" + str(s) + "failed'")
+            if self.filename in self.passingCoverage.keys():
+                print(self.filename)
+                for s in self.passingCoverage[self.filename]:
+                    vim.command("echo '" + str(s) + " passed'")
+                    vim.command("call s:markSuccess(" + str(s) + ")")
+                for s in self.failingCoverage[self.filename]:
+                    vim.command("echo '" + str(s) + " failed'")
+                    vim.command("call s:markFailure(" + str(s) + ")")
 
 
 class TestManager:
     def __init__(self):
         self.importManager = ImportManager()
 
-
     def runTests(self):
-        self.testCollection = TestCollection()
+        testCollection = TestCollection()
+        testCollection.clearTests()
         self.importManager.reloadTestClasses()
         for testClass in self.importManager.testClasses:
             tests = self.importManager.getTestMethodsFromClass(testClass)
             for test in tests:
-                self.testCollection.addTest(TestData(testClass, test))
-        self.testCollection.getCoverage()
+                testCollection.addTest(TestData(testClass, test))
+        testCollection.getCoverage()
+
+def getTestClasses(module):
+    testClasses = []
+    for d in dir(module):
+        attr = getattr(module, d)
+        try:
+            if issubclass(attr, unittest.TestCase):
+                testClasses.append(attr)
+        except TypeError:
+            # attr is not a class
+            pass
+    return testClasses
 
 
-if __name__ == '__main__':
-    tm = TestManager()
 
 
 
