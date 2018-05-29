@@ -160,7 +160,7 @@ class TestCollection:
                     self.passingCoverage[f] = SortedSet()
                     self.failingCoverage[f] = SortedSet()
                     self.notCovered[f] = SortedSet()
-                for coveredLine in test.coveredLines(f):
+                for coveredLine in test.coveredLines[f]:
                     if test.result.wasSuccessful():
                         self.passingCoverage[f].add(coveredLine)
                     else:
