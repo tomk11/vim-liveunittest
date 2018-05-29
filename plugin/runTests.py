@@ -116,7 +116,7 @@ class TestData:
         suite.addTest(self.testClass(self.testName))
 
         # Start logging coverage and
-        cov = coverage.Coverage()
+        cov = coverage.coverage()
         cov.start()
         result = runner.run(suite)
         cov.save()
