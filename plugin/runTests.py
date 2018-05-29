@@ -15,8 +15,17 @@ try:
         sys.path.append(projectDir)
 except:
     vimMode = False
-    print('not vim mode')
 
+
+def getProjectRoot():
+    if '.project' in os.listdir('.'):
+        return '.'
+    searchPath = '../'
+    while 'home' not in os.listdir(searchPath):
+        if '.project' in os.listdir(searchPath):
+            return searchPath
+        searchPath += '../'
+    return '.'
 
 def shouldReload(filePath):
     if 'home' not in filePath:
@@ -32,20 +41,17 @@ def shouldReload(filePath):
         # user code
         return True
 
-
 def reloadUserModules():
     for m in sys.modules.values():
         try:
             if shouldReload(m.__file__):
                 importlib.reload(m)
-                vim.command("echo '" + str(m.__file__) + " reloaded'")
-            #elif 'home' in m.__file__ and 'YouCompleteMe' not in m.__file__:
-            #    vim.command("echo '" + str(m.__file__) + " ignored'")
-
         except AttributeError:
             pass
 
-
+def getTestMethodsFromClass(testClass):
+    methods = dir(testClass)
+    return list(filter(lambda m: m not in dir(unittest.TestCase), methods))
 
 def isTestFile(filename):
     try:
@@ -57,6 +63,9 @@ def isTestFile(filename):
 class ImportManager:
     def __init__(self):
         self.testModules=[]
+
+    def reloadTestModules(self):
+        pass
 
     def reloadTestClasses(self):
         reloadUserModules()
@@ -70,6 +79,7 @@ class ImportManager:
             try:
                 self.testModules.append(importlib.import_module(moduleName))
             except:
+                # problem with module it's self
                 pass
 
         self.testClasses = []
@@ -77,9 +87,6 @@ class ImportManager:
             self.testClasses += getTestClasses(m)
 
 
-    def getTestMethodsFromClass(self, testClass):
-        methods = dir(testClass)
-        return list(filter(lambda m: m not in dir(unittest.TestCase), methods))
 
 
 class TestData:
@@ -132,7 +139,7 @@ class TestCollection:
         if vimMode:        
             self.length = int(vim.eval("line('$')"))
             self.filename =vim.eval("g:filename")
-        else:
+        else: 
             self.length = 100
 
     def clearTests(self):
@@ -147,7 +154,6 @@ class TestCollection:
         self.exceptionCoverage = {}
         self.notCovered = {}
         for test in self.tests:
-            #print(self.tests)
             test.run()
             for f in test.coveredFiles:
                 if f not in self.passingCoverage:
@@ -163,17 +169,12 @@ class TestCollection:
                     if line not in self.passingCoverage[f] and line not in self.failingCoverage[f]:
                         self.notCovered[f].add(line)
 
-        print(self.passingCoverage.keys())
-
         if vimMode:
             vim.command("sign unplace *")
             if self.filename in self.passingCoverage.keys():
-                print(self.filename)
                 for s in self.passingCoverage[self.filename]:
-                    vim.command("echo '" + str(s) + " passed'")
                     vim.command("call s:markSuccess(" + str(s) + ")")
                 for s in self.failingCoverage[self.filename]:
-                    vim.command("echo '" + str(s) + " failed'")
                     vim.command("call s:markFailure(" + str(s) + ")")
 
 
@@ -186,7 +187,7 @@ class TestManager:
         testCollection.clearTests()
         self.importManager.reloadTestClasses()
         for testClass in self.importManager.testClasses:
-            tests = self.importManager.getTestMethodsFromClass(testClass)
+            tests = getTestMethodsFromClass(testClass)
             for test in tests:
                 testCollection.addTest(TestData(testClass, test))
         testCollection.getCoverage()

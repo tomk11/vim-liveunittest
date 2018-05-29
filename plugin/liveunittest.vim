@@ -7,7 +7,6 @@ endif
 let g:plugindir = expand('<sfile>:p:h')
 let g:filename = expand('%:p')
 
-
 " Initialise the gutter
 function! s:defineHighlights()
     highlight testPassed  guifg=#009900 guibg=#009900 ctermfg=2 ctermbg=2
@@ -32,17 +31,8 @@ function! s:markNone(lineNumber)
     execute ":sign unplace 1 line=" . a:lineNumber . "file=" . expand("%:p")
 endfunction
 
-function! s:runTests()
-py3 << EOF
-tm.runTests()
-EOF
-endfunction
-
-
 call s:defineHighlights()
 call s:defineSigns()
-
-
 
 py3 << EOF
 import sys
@@ -52,9 +42,7 @@ import runTests
 tm=runTests.TestManager()
 EOF
 
-
-"command! Runtests execute 'py3 tm.runTests()'
-command! Runtests call s:runTests()
+command! Runtests execute 'py3 tm.runTests()'
 
 autocmd BufRead,BufNewFile *.py nnoremap <F4> <ESC>:w<CR>:Runtests<CR>
 execute ':Runtests'
